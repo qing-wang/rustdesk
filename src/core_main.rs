@@ -55,13 +55,21 @@ pub fn core_main() -> Option<CoreMainAction> {
     // 簽章（read_custom_client 會驗簽），我們沒有那把私鑰；exe 檔名注入又不適合
     // TaipeiBridge 固定檔名的目錄置換。因此在此以 DEFAULT_SETTINGS 直接填入部署預設：
     // 全新安裝即連 sufus.top，使用者仍可在設定頁改。rendezvous server 與公鑰必須成對，
-    // 否則會回落到官方公共伺服器（會要求登入）或握手失敗。公鑰為公開資訊。
+    // 否則會回落到官方公共伺服器（會要求登入）或握手失敗。
+    //
+    // 公鑰「不寫進原始碼」，改由編譯期環境變數 RUSTDESKQ_KEY 注入（CI 從 repo secret 帶入，
+    // 見 .github/workflows/win-flutter-build.yml）。這樣公開 fork 看不到 key，普通版 RustDesk
+    // 不知道這把 key 便連不上我們的 server（L1 門檻）。本地不帶 secret 編出的版本 key 為空，
+    // 只能連上但不會自動帶 key（開發用）。
     {
         let mut d = config::DEFAULT_SETTINGS.write().unwrap();
         d.entry("custom-rendezvous-server".to_owned())
             .or_insert_with(|| "sufus.top".to_owned());
-        d.entry("key".to_owned())
-            .or_insert_with(|| "4MbaJIP1jIejeiHhvA8BWr2c1ESQtT22yDFXDCeJbZk=".to_owned());
+        if let Some(k) = option_env!("RUSTDESKQ_KEY") {
+            if !k.is_empty() {
+                d.entry("key".to_owned()).or_insert_with(|| k.to_owned());
+            }
+        }
     }
     #[cfg(windows)]
     if !crate::platform::windows::bootstrap() {
