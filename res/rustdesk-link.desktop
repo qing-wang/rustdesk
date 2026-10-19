@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=RustDesk
+Name=RustDeskQ
 NoDisplay=true
 MimeType=x-scheme-handler/rustdesk;
 TryExec=rustdesk

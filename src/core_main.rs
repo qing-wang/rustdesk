@@ -43,6 +43,10 @@ fn finish_macos_update(result: hbb_common::ResultType<()>) -> Option<CoreMainAct
 /// If it returns [`Some`], the action determines whether to start the UI or report failure.
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn core_main() -> Option<CoreMainAction> {
+    // RustDeskQ 品牌：在任何從 APP_NAME 衍生的設定路徑／服務名／具名管道／視窗標題
+    // 產生之前就定名。APP_NAME 定義在 hbb_common（submodule），此處於啟動最前端覆寫，
+    // 無需改動 submodule。詳見 doc/client-fork-build.md 的品牌化說明。
+    *config::APP_NAME.write().unwrap() = "RustDeskQ".to_owned();
     if !crate::common::global_init() {
         return None;
     }
