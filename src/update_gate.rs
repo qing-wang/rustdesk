@@ -5,7 +5,9 @@
 // 來說，硬殺等於把正在遠端操作這台機器的人直接踢掉。所以這裡在主行程開一個小的
 // listener，有進行中的被控連線時回報忙碌，閒置時才放行並自行結束。
 //
-// 協定（四行 JSON，非 .NET 專屬）：
+// 協定（四行 JSON，非 .NET 專屬）。每則訊息是一行 JSON、以 \n 結尾（line-delimited），
+// 不是 RustDesk 內部 IPC 的長度前綴 framing —— 這樣 .NET Agent 用 StreamReader.ReadLine /
+// StreamWriter.WriteLine 就能直接對接，不必重現 hbb_common::bytes_codec 的變長表頭。
 //   agent -> app  {"cmd":"prepareUpdate","timeoutSeconds":N}
 //   app  -> agent {"state":"busy","detail":"..."}   // 可重複
 //   app  -> agent {"state":"ready"}                  // 之後自行結束
@@ -19,8 +21,6 @@
 #![cfg(windows)]
 
 use hbb_common::{
-    bytes::Bytes,
-    bytes_codec::BytesCodec,
     futures::StreamExt,
     futures_util::sink::SinkExt,
     log,
@@ -28,7 +28,7 @@ use hbb_common::{
         self,
         time::{sleep, Duration, Instant},
     },
-    tokio_util::codec::Framed,
+    tokio_util::codec::{Framed, LinesCodec},
     ResultType,
 };
 use parity_tokio_ipc::{Endpoint, SecurityAttributes};
@@ -37,8 +37,10 @@ use parity_tokio_ipc::{Endpoint, SecurityAttributes};
 const PIPE_PATH: &str = r"\\.\pipe\taipeibridge-rustdeskq-client";
 // 忙碌時每隔幾秒回報一次，並重新檢查是否已閒置。
 const BUSY_POLL_SECS: u64 = 3;
+// 單則交握訊息很短；設個上限避免 Agent 送出無換行的超長資料把緩衝撐大。
+const MAX_LINE_LEN: usize = 64 * 1024;
 
-type Pipe = Framed<parity_tokio_ipc::Connection, BytesCodec>;
+type Pipe = Framed<parity_tokio_ipc::Connection, LinesCodec>;
 
 /// 在主行程以獨立 OS 執行緒＋自有 current-thread runtime 啟動 listener。
 pub fn start() {
@@ -62,7 +64,7 @@ async fn run() -> ResultType<()> {
         match conn {
             Ok(stream) => {
                 tokio::spawn(async move {
-                    let mut pipe = Framed::new(stream, BytesCodec::new());
+                    let mut pipe = Framed::new(stream, LinesCodec::new_with_max_length(MAX_LINE_LEN));
                     if let Err(e) = handle(&mut pipe).await {
                         log::trace!("update_gate connection ended: {:?}", e);
                     }
@@ -76,10 +78,10 @@ async fn run() -> ResultType<()> {
 
 async fn handle(pipe: &mut Pipe) -> ResultType<()> {
     let first = match pipe.next().await {
-        Some(Ok(b)) => b,
+        Some(Ok(line)) => line,
         _ => return Ok(()),
     };
-    let msg: serde_json::Value = serde_json::from_slice(&first).unwrap_or(serde_json::Value::Null);
+    let msg: serde_json::Value = serde_json::from_str(&first).unwrap_or(serde_json::Value::Null);
     match msg.get("cmd").and_then(|c| c.as_str()) {
         Some("ping") => {
             reply(pipe, &serde_json::json!({ "state": "alive" })).await?;
@@ -128,7 +130,8 @@ async fn handle(pipe: &mut Pipe) -> ResultType<()> {
 }
 
 async fn reply(pipe: &mut Pipe, v: &serde_json::Value) -> ResultType<()> {
-    pipe.send(Bytes::from(serde_json::to_vec(v)?)).await?;
+    // LinesCodec 會自動在尾端補上 \n。
+    pipe.send(serde_json::to_string(v)?).await?;
     Ok(())
 }
 
