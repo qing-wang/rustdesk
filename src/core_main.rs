@@ -218,6 +218,8 @@ pub fn core_main() -> Option<CoreMainAction> {
         {
             crate::platform::try_remove_temp_update_files();
             hbb_common::config::PeerConfig::preload_peers();
+            // TaipeiBridge 更新交握 listener：只在主 UI 行程開，被控連線登錄在此行程。
+            crate::update_gate::start();
         }
         std::thread::spawn(move || crate::start_server(false, no_server));
     } else {

@@ -2582,7 +2582,9 @@ class _AboutState extends State<_About> {
                 height: 8.0,
               ),
               SelectionArea(
-                  child: Text('${translate('Version')}: $version')
+                  // 同時顯示上游 RustDesk 版號與 TaipeiBridge 發行版號。
+                  // 改發行版本時要跟 release.json 的 "version" 一起 bump。
+                  child: Text('${translate('Version')}: $version (RustDeskQ 1.0.0)')
                       .marginSymmetric(vertical: 4.0)),
               SelectionArea(
                   child: Text('${translate('Build Date')}: $buildDate')

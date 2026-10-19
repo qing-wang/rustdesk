@@ -48,6 +48,9 @@ mod clipboard;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod core_main;
 mod custom_server;
+// TaipeiBridge 更新交握（僅 Windows 主行程用）。
+#[cfg(windows)]
+mod update_gate;
 mod lang;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod port_forward;
