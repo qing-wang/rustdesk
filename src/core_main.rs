@@ -51,6 +51,18 @@ pub fn core_main() -> Option<CoreMainAction> {
         return None;
     }
     crate::load_custom_client();
+    // RustDeskQ 預設連自架伺服器 sufus.top。官方的 custom.txt 機制需 RustDesk 私鑰
+    // 簽章（read_custom_client 會驗簽），我們沒有那把私鑰；exe 檔名注入又不適合
+    // TaipeiBridge 固定檔名的目錄置換。因此在此以 DEFAULT_SETTINGS 直接填入部署預設：
+    // 全新安裝即連 sufus.top，使用者仍可在設定頁改。rendezvous server 與公鑰必須成對，
+    // 否則會回落到官方公共伺服器（會要求登入）或握手失敗。公鑰為公開資訊。
+    {
+        let mut d = config::DEFAULT_SETTINGS.write().unwrap();
+        d.entry("custom-rendezvous-server".to_owned())
+            .or_insert_with(|| "sufus.top".to_owned());
+        d.entry("key".to_owned())
+            .or_insert_with(|| "4MbaJIP1jIejeiHhvA8BWr2c1ESQtT22yDFXDCeJbZk=".to_owned());
+    }
     #[cfg(windows)]
     if !crate::platform::windows::bootstrap() {
         // return None to terminate the process
