@@ -71,6 +71,15 @@ pub fn core_main() -> Option<CoreMainAction> {
             }
         }
     }
+    // 隱藏「登入／帳號」入口：連線授權靠自架 server + L1 key + 被控端固定密碼，
+    // 帳號 API（登入／地址簿／使用者管理）沒有後端，登入按了也無作用。disable-account
+    // 是 hard option，設 "Y" 後設定頁不再出現 Account 分頁（is_disable_account()）。
+    // 中短期不需要登入；日後要帳號功能時移除此段即可。
+    config::HARD_SETTINGS
+        .write()
+        .unwrap()
+        .entry("disable-account".to_owned())
+        .or_insert_with(|| "Y".to_owned());
     #[cfg(windows)]
     if !crate::platform::windows::bootstrap() {
         // return None to terminate the process
