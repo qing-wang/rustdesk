@@ -64,7 +64,12 @@ pub fn core_main() -> Option<CoreMainAction> {
     {
         let mut d = config::DEFAULT_SETTINGS.write().unwrap();
         d.entry("custom-rendezvous-server".to_owned())
-            .or_insert_with(|| "sufus.top".to_owned());
+            .or_insert_with(|| "rs.sufus.top".to_owned());
+        // rendezvous/relay（hbbs/hbbr）搬到東京 VPS 的 rs.sufus.top 以降低延遲、救直連；
+        // console/api 仍在 sufus.top，故 api-server 顯式指回，否則會被推導成
+        // rs.sufus.top:21114（無服務）。金鑰原樣沿用，不變。
+        d.entry("api-server".to_owned())
+            .or_insert_with(|| "https://sufus.top/RustDeskQ".to_owned());
         if let Some(k) = option_env!("RUSTDESKQ_KEY") {
             if !k.is_empty() {
                 d.entry("key".to_owned()).or_insert_with(|| k.to_owned());
